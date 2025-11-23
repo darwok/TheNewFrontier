@@ -13,6 +13,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private GameObject[] ammoUI;   // ammo panels for each weapon
     [SerializeField] private Animator anim;
 
+    [Header("Weapon Switch Keys")]
+    [SerializeField] private KeyCode weapon1Key = KeyCode.Alpha1;
+    [SerializeField] private KeyCode weapon2Key = KeyCode.Alpha2;
+
+
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float sprintSpeed = 3f;
@@ -117,6 +122,8 @@ public class PlayerController : MonoBehaviour
     {
         if (state == PlayerState.Dead)
             return;
+        // Weapon switching input
+        HandleWeaponSwitchInput();
 
         // First handle commands based on state
         if (state == PlayerState.Normal)
@@ -145,7 +152,6 @@ public class PlayerController : MonoBehaviour
             {
                 controller.Move(moveDirection * Time.deltaTime);
                 // Rotar hacia la dirección de movimiento
-                // Tuve que aislar el eje Y para que no se incline al mirar hacia arriba o abajo
                 Vector3 lookDir = new Vector3(moveDirection.x, 0f, moveDirection.z);
                 if (lookDir.sqrMagnitude > 0.001f)
                 {
@@ -292,7 +298,21 @@ public class PlayerController : MonoBehaviour
 
     // === Weapons / switching ===
 
-    public void ActivateWeapon(int index)
+    private void HandleWeaponSwitchInput()
+    {
+        if (Input.GetKeyDown(weapon1Key))
+        {
+            ActivateWeapon(0);  // Bow
+        }
+
+        if (Input.GetKeyDown(weapon2Key))
+        {
+            ActivateWeapon(1);  // TeslaGun
+        }
+    }
+
+
+    public void ActivateWeaponOld(int index)
     {
         if (weapons == null || weapons.Length == 0) return;
         if (ammoUI == null || ammoUI.Length < weapons.Length) return;
@@ -303,6 +323,33 @@ public class PlayerController : MonoBehaviour
             ammoUI[i].SetActive(i == index);
         }
     }
+
+    public void ActivateWeapon(int index)
+    {
+        if (weapons == null || weapons.Length == 0) return;
+        if (index < 0 || index >= weapons.Length) return;
+
+        // Activar/desactivar armas
+        for (int i = 0; i < weapons.Length; i++)
+        {
+            if (weapons[i] != null)
+                weapons[i].SetActive(i == index);
+        }
+
+        // Activar/desactivar UI de ammo SOLO si existe
+        if (ammoUI != null && ammoUI.Length > 0)
+        {
+            for (int i = 0; i < ammoUI.Length; i++)
+            {
+                if (ammoUI[i] != null)
+                    ammoUI[i].SetActive(i == index);
+            }
+        }
+
+        // Debug log to confirm switch and test key input
+        Debug.Log($"Weapon switched to index {index}");
+    }
+
 
     public void SwitchWeapon(int index)
     {
