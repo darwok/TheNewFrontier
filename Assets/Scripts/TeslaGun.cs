@@ -39,7 +39,7 @@ public class TeslaGun : MonoBehaviour
 
     void Start()
     {
-        // Initialize variables
+        // Initialize variables so the player starts with full ammo and mags and update UI
         currAmmoTime = maxAmmoTime;
         currMag = maxMags;
         ammoText.text = currAmmoTime.ToString() + "/" + maxAmmoTime;
@@ -49,7 +49,7 @@ public class TeslaGun : MonoBehaviour
 
     void Update()
     {
-        // Shoot and Reload actions
+        // Shoot and Reload actions, just like the name says...
         if (shoot.action.IsPressed()) ShootLaser();
         if (reload.action.triggered)
         {
@@ -59,26 +59,16 @@ public class TeslaGun : MonoBehaviour
     }
 
     // Main method to shoot the laser (commented lines to test before deleting them)
+    // Update: Test completed, removed comments
     private void ShootLaser()
     {
-        //RaycastHit hit;
-        //Vector3 laserEnd = muzzle.position + muzzle.forward * laserRange;
         if (currAmmoTime > 0 && currMag >= 0 && !npc.playerInRange)
         {
-            //if (Physics.Raycast(muzzle.position, muzzle.forward, out hit, laserRange, hitLayers))
             {
                 isShooting = true;
                 playerAnimator.SetTrigger("LaserShot");
                 StartCoroutine(ShootLaserRoutine());
-                //currAmmoTime -= Time.deltaTime;
-                //currAmmoTime = Mathf.Clamp(currAmmoTime, 0f, maxAmmoTime);
-                //ammoText.text = currAmmoTime.ToString() + "/" + maxAmmoTime;
-                //laserEnd = hit.point;
-                //Debug.Log("Hit detected with: " + hit.collider.name);
-                //EnemyController enemy = hit.collider.GetComponent<EnemyController>();
-                //if (enemy != null) enemy.GetHit(teslaDamage);
             }
-            //DrawLaser(laserEnd);
         }
         else if ( currMag <= 0)
         {
@@ -102,7 +92,6 @@ public class TeslaGun : MonoBehaviour
         {
             currAmmoTime -= Time.deltaTime;
             currAmmoTime = Mathf.Clamp(currAmmoTime, 0f, maxAmmoTime);
-            //ammoText.text = currAmmoTime.ToString("F0") + "/" + maxAmmoTime.ToString("F0");
             ammoText.text = ((currAmmoTime / maxAmmoTime) * 100).ToString("F0") + "%";
 
             laserEnd = hit.point;
@@ -117,6 +106,14 @@ public class TeslaGun : MonoBehaviour
         shootParticles.Play();
     }
 
+    public void TryShoot()
+    {
+        if (currAmmoTime > 0 && currMag >= 0 && !npc.playerInRange)
+        {
+            if (!isShooting)
+                StartCoroutine(ShootLaserRoutine());
+        }
+    }
 
     private void DrawLaser(Vector3 endPoint)
     {
