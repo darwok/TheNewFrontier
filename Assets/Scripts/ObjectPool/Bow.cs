@@ -25,8 +25,16 @@ public class Bow : MonoBehaviour
     private float lastShotTime;
     public bool isShooting { get; private set; }
 
+    private void Awake()
+    {
+        if (playerAnimator == null)
+            playerAnimator = GetComponentInParent<Animator>();
+    }
+
     private void Start()
     {
+        currAmmo = maxAmmo;
+        currMag = maxMags;
         UpdateUI();
     }
 
@@ -58,7 +66,7 @@ public class Bow : MonoBehaviour
     {
         isShooting = true;
         if (playerAnimator != null)
-            playerAnimator.SetTrigger("BowShot");
+            playerAnimator.SetTrigger("ArrowShot");
 
         yield return new WaitForSeconds(0.5f);
 
@@ -101,5 +109,18 @@ public class Bow : MonoBehaviour
         currMag--;
         currAmmo = maxAmmo;
         UpdateUI();
+    }
+
+    private void OnEnable()
+    {
+        // Por si el arma se re-activa en medio de un disparo cancelado
+        isShooting = false;
+        UpdateUI();
+    }
+
+    private void OnDisable()
+    {
+        // Cancelamos cualquier “estado de disparo” atascado
+        isShooting = false;
     }
 }

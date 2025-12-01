@@ -20,8 +20,9 @@ public class TeslaGun : MonoBehaviour
     [SerializeField] private TMPro.TextMeshProUGUI magsText;
     [SerializeField] private Animator playerAnimator;
     [SerializeField] private ParticleSystem shootParticles;
-    public bool isShooting = false;
+    public bool isShooting { get; private set; }
     [SerializeField] private NPC npc;
+
 
     PlayerController controllerScipt;
 
@@ -51,11 +52,11 @@ public class TeslaGun : MonoBehaviour
     {
         // Shoot and Reload actions, just like the name says...
         if (shoot.action.IsPressed()) ShootLaser();
-        if (reload.action.triggered)
-        {
-            if (currMag > 0 && currAmmoTime == 0) Reload(maxAmmoTime);
-            else if (currMag == 0) Debug.Log("No more mags left, look for more Arrows");
-        }
+        //if (reload.action.triggered)
+        //{
+        //    if (currMag > 0 && currAmmoTime == 0) Reload(maxAmmoTime);
+        //    else if (currMag == 0) Debug.Log("No more mags left, look for more Arrows");
+        //}
     }
 
     // Main method to shoot the laser (commented lines to test before deleting them)
@@ -135,6 +136,11 @@ public class TeslaGun : MonoBehaviour
         currMag++;
         currMag = Mathf.Clamp(currMag, 0, maxMags);
         magsText.text = currMag.ToString() + maxMags;
+    }
+
+    public void ReloadTime()
+    {
+        Reload(maxAmmoTime);
     }
 
     public void Reload(float time)

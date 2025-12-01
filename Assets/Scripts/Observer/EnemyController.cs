@@ -11,7 +11,6 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private float hp = 100f;
     [SerializeField] private Transform player;
-    [SerializeField] int maxHP;
     [SerializeField] int points;
     [SerializeField] private float attackRange = 2f;
     [SerializeField] private Collider attackCollider;
@@ -24,28 +23,34 @@ public class EnemyController : MonoBehaviour
     private Vector3 lastPosition;
     private bool isAttacking = false;
     private bool isDead = false;
-    private PlayerController playerController;
+
+    public void Init(Transform playerTransform)
+    {
+        player = playerTransform;
+    }
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
         lastPosition = transform.position;
         currentPatrolPoint = 0;
+
+        if (player == null)
+        {
+            GameObject go = GameObject.FindGameObjectWithTag("Player");
+            if (go != null)
+                player = go.transform;
+        }
     }
 
     // Update is called once per frame
     void Update()
     {
+        if (player == null) return;
+        float distanceToPlayer = GetFlatDistanceToPlayer();
         if (isDead) return;
         bool isMoving = (transform.position != lastPosition);
         animator.SetBool("Walking", isMoving);
-        
-        //float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-        Vector3 enemyPos = transform.position;
-        Vector3 playerPos = player.position;
-        enemyPos.y = 0f;
-        playerPos.y = 0f;
-        float distanceToPlayer = Vector3.Distance(enemyPos, playerPos);
 
         if (distanceToPlayer <= attackRange)
         {
@@ -98,7 +103,6 @@ public class EnemyController : MonoBehaviour
         GetComponent<Collider>().enabled = false;
         StopAttack();
         animator.SetTrigger("Death");
-        scoreManager.instance.AddScore(points);
         yield return new WaitForSeconds(3f);
         gameObject.SetActive(false);
     }
@@ -107,12 +111,21 @@ public class EnemyController : MonoBehaviour
     {
         isAttacking = true;
         animator.SetBool("Attacking", true);
+        if (agent != null)
+        {
+            agent.isStopped = true;      // stop moving
+            agent.ResetPath();           // clear current destination so it doesn't "slide", cause it was moonwalking towards the player while attacking.
+        }
     }
 
     private void StopAttack()
     {
         isAttacking = false;
         animator.SetBool("Attacking", false);
+        if (agent != null && !isDead)
+        {
+            agent.isStopped = false;     // allow movement again only if still alive
+        }
     }
 
     void EnableAttackCollider()
@@ -127,7 +140,25 @@ public class EnemyController : MonoBehaviour
 
     void Patrol()
     {
-        agent.SetDestination(patrolPoints[currentPatrolPoint].position);
-        if (Vector3.Distance(transform.position, patrolPoints[currentPatrolPoint].position) < 3) currentPatrolPoint++;
+        if (patrolPoints == null || patrolPoints.Count == 0)
+            return;
+
+        if (currentPatrolPoint >= patrolPoints.Count)
+            currentPatrolPoint = 0;
+
+        Transform target = patrolPoints[currentPatrolPoint];
+        agent.SetDestination(target.position);
+
+        if (Vector3.Distance(transform.position, target.position) < 3f)
+            currentPatrolPoint++;
+    }
+
+    private float GetFlatDistanceToPlayer()
+    {
+        Vector3 enemyPos = transform.position;
+        Vector3 playerPos = player.position;
+        enemyPos.y = 0f;
+        playerPos.y = 0f;
+        return Vector3.Distance(enemyPos, playerPos);
     }
 }

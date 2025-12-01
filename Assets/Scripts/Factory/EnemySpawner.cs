@@ -10,6 +10,9 @@ public class EnemySpawner : MonoBehaviour
     public Transform[] spawnPoints;
     public int enemiesPerPoint = 1;
 
+    [Header("References")]
+    public Transform player;
+
     private void Start()
     {
         SpawnAll();
@@ -33,7 +36,16 @@ public class EnemySpawner : MonoBehaviour
         {
             for (int i = 0; i < enemiesPerPoint; i++)
             {
-                factory.CreateEnemy(enemyType, point.position, point.rotation);
+                GameObject enemyObj =
+                    factory.CreateEnemy(enemyType, point.position, point.rotation);
+
+                if (enemyObj == null) continue;
+
+                var enemy = enemyObj.GetComponent<EnemyController>();
+                if (enemy != null && player != null)
+                {
+                    enemy.Init(player);
+                }
             }
         }
     }
