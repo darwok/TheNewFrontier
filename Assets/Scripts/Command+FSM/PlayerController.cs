@@ -33,7 +33,6 @@ public class PlayerController : MonoBehaviour
     [Header("Damage")]
     [SerializeField] private float hitDamage = 10f;
     [SerializeField] private ParticleSystem hitParticles;
-    [SerializeField] private AudioSource hitSound;
 
     [Header("Deadzone Teleport")]
     [SerializeField] private Transform teleportDestination;
@@ -44,6 +43,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private InputActionReference sprint;
     [SerializeField] private InputActionReference dash;
     [SerializeField] private InputActionReference attack;
+
+    [Header("SFX")]
+    [SerializeField] private AudioClip jumpClip;
+    [SerializeField] private AudioClip hurtClip;
 
     private CharacterController controller;
     private Transform cameraTransform;
@@ -209,6 +212,9 @@ public class PlayerController : MonoBehaviour
             anim.SetTrigger("DoubleJump");
 
         velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+        if (jumpClip != null)
+            AudioManager.Instance?.PlaySfx(jumpClip);
     }
 
     public void HandleDashInput()
@@ -307,7 +313,8 @@ public class PlayerController : MonoBehaviour
             stats.TakeDamage(hitDamage);
 
         if (hitParticles != null) hitParticles.Play();
-        if (hitSound != null) hitSound.Play();
+        if (hurtClip != null)
+            AudioManager.Instance?.PlaySfx(hurtClip);
 
         if (stats != null && stats.CurrentHealth <= 0f)
         {
@@ -366,12 +373,14 @@ public class PlayerController : MonoBehaviour
     {
         if (Input.GetKeyDown(weapon1Key))
         {
+            anim.SetTrigger("EquipBow");
             ActivateWeapon(0);  // Bow
         }
 
         if (Input.GetKeyDown(weapon2Key))
         {
             ActivateWeapon(1);  // TeslaGun
+            anim.SetTrigger("DisarmBow");
         }
     }
 

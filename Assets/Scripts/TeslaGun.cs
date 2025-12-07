@@ -7,6 +7,7 @@ public class TeslaGun : MonoBehaviour
     [SerializeField] InputActionReference shoot;
     [SerializeField] InputActionReference reload;
     [SerializeField] private float laserRange = 50;
+    [SerializeField] private float laserDuration = 1;
     [SerializeField] Transform muzzle;
     [SerializeField] LayerMask hitLayers;
     [SerializeField] LineRenderer lineRenderer;
@@ -20,6 +21,11 @@ public class TeslaGun : MonoBehaviour
     [SerializeField] private TMPro.TextMeshProUGUI magsText;
     [SerializeField] private Animator playerAnimator;
     [SerializeField] private ParticleSystem shootParticles;
+
+    [Header("SFX")]
+    [SerializeField] private AudioClip laserShootClip;
+    [SerializeField] private AudioClip reloadClip;
+
     public bool isShooting { get; private set; }
     [SerializeField] private NPC npc;
 
@@ -36,6 +42,7 @@ public class TeslaGun : MonoBehaviour
     {
         shoot.action.Disable();
         reload.action.Disable();
+        isShooting = false;
     }
 
     void Start()
@@ -43,8 +50,8 @@ public class TeslaGun : MonoBehaviour
         // Initialize variables so the player starts with full ammo and mags and update UI
         currAmmoTime = maxAmmoTime;
         currMag = maxMags;
-        ammoText.text = currAmmoTime.ToString() + "/" + maxAmmoTime;
-        magsText.text = currMag.ToString() + "/" + maxMags;
+        ammoText.text = "Energy" + currAmmoTime.ToString() + "/" + maxAmmoTime;
+        magsText.text = "Batteries" + currMag.ToString() + "/" + maxMags;
 
     }
 
@@ -80,7 +87,10 @@ public class TeslaGun : MonoBehaviour
     // Coroutine to handle animation start and function execution
     private IEnumerator ShootLaserRoutine()
     {
-        yield return new WaitForSeconds(0.5f);
+        isShooting = true;
+        if (laserShootClip != null)
+            AudioManager.Instance?.PlaySfx(laserShootClip);
+        yield return new WaitForSeconds(laserDuration);
         if (!shoot.action.IsPressed())
         {
             isShooting = false;
@@ -105,15 +115,24 @@ public class TeslaGun : MonoBehaviour
         // Draw laser visual effect
         DrawLaser(laserEnd);
         shootParticles.Play();
+        isShooting = false;
     }
 
-    public void TryShoot()
+    public bool TryShoot()
     {
+        if (isShooting) return false;
         if (currAmmoTime > 0 && currMag >= 0 && !npc.playerInRange)
         {
-            if (!isShooting)
-                StartCoroutine(ShootLaserRoutine());
+            isShooting = true;
+            playerAnimator.SetTrigger("LaserShot");
         }
+        else
+        {
+            Debug.Log("No ammo left, reload");
+            return false;
+        }
+        StartCoroutine(ShootLaserRoutine());
+        return true;
     }
 
     private void DrawLaser(Vector3 endPoint)
@@ -145,6 +164,8 @@ public class TeslaGun : MonoBehaviour
 
     public void Reload(float time)
     {
+        if (reloadClip != null)
+            AudioManager.Instance?.PlaySfx(reloadClip);
         currMag--;
         currAmmoTime = time;
         magsText.text = currMag.ToString() + "/" + maxMags;

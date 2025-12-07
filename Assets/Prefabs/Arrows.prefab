@@ -154,8 +154,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rotationSpeed: {x: 0, y: 50, z: 0}
-  targetWeapon: Bow
   floatAmplitude: 0.5
   floatFrequency: 2
-  bowComponent: {fileID: 0}
-  teslaGunComponent: {fileID: 0}
+  ammoAmount: 10
+  pickupClip: {fileID: 8300000, guid: 3c6bb99bd79283046a425a02e14a05ac, type: 3}

@@ -24,6 +24,11 @@ public class EnemyController : MonoBehaviour
     private bool isAttacking = false;
     private bool isDead = false;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip hitClip;
+    [SerializeField] private AudioClip deathClip;
+
+
     public void Init(Transform playerTransform)
     {
         player = playerTransform;

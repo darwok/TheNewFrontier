@@ -7,6 +7,9 @@ public class AmmoMags : MonoBehaviour
     [SerializeField] private float floatFrequency = 2f;
     [SerializeField] private int ammoAmount = 10;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip pickupClip;
+
     private Vector3 startPosition;
 
     private void Start()
@@ -33,6 +36,9 @@ public class AmmoMags : MonoBehaviour
         // Restock de mags de armas también
         if (bow != null) bow.RestockAmmo();
         if (tesla != null) tesla.RestockAmmo();
+
+        if (pickupClip != null)
+            AudioManager.Instance?.PlaySfx(pickupClip);
 
         gameObject.SetActive(false);
     }
