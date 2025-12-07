@@ -263,3 +263,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b081b762dc8a4c64fb3281126ad9e8e4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  floatAmplitude: 0.5
+  floatFrequency: 2
+  healAmount: 20
+  pickupClip: {fileID: 8300000, guid: 3c6bb99bd79283046a425a02e14a05ac, type: 3}

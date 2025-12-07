@@ -49,7 +49,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &2389547943987373903
 Transform:
   m_ObjectHideFlags: 0
@@ -103,7 +103,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &3015563257378989160
 Transform:
   m_ObjectHideFlags: 0
@@ -5302,10 +5302,20 @@ MonoBehaviour:
   animator: {fileID: 6567905926887464816}
   hp: 100
   player: {fileID: 0}
-  maxHP: 100
   points: 33
   attackRange: 2.2
   attackCollider: {fileID: 3473376897337777355}
+  hitP: {fileID: 8318640446434399699}
+  arrowDamage: 50
+  patrolPoints:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  currentPatrolPoint: 0
+  toPatrol: 20
+  hitClip: {fileID: 8300000, guid: 292a5c798487e9f499b3fbbdb1c3cde5, type: 3}
+  deathClip: {fileID: 8300000, guid: 9169bff1adb623148a05b5d70d82e043, type: 3}
 --- !u!4 &6623724862388722587 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6502182839619065283, guid: 012d3edf01986814f8e061b0af89eb53, type: 3}

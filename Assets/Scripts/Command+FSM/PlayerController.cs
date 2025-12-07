@@ -13,6 +13,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private GameObject[] ammoUI;   // ammo panels for each weapon
     [SerializeField] private Animator anim;
 
+    [Header("Keybindings")]
+    [SerializeField] private KeyCode weapon1Key = KeyCode.Alpha1;
+    [SerializeField] private KeyCode weapon2Key = KeyCode.Alpha2;
+    [SerializeField] private KeyCode reloadKey = KeyCode.R;
+
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float sprintSpeed = 3f;
@@ -28,9 +33,8 @@ public class PlayerController : MonoBehaviour
     [Header("Damage")]
     [SerializeField] private float hitDamage = 10f;
     [SerializeField] private ParticleSystem hitParticles;
-    [SerializeField] private AudioSource hitSound;
 
-    [Header("Teleport")]
+    [Header("Deadzone Teleport")]
     [SerializeField] private Transform teleportDestination;
 
     [Header("Input Actions")]
@@ -39,6 +43,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private InputActionReference sprint;
     [SerializeField] private InputActionReference dash;
     [SerializeField] private InputActionReference attack;
+
+    [Header("SFX")]
+    [SerializeField] private AudioClip jumpClip;
+    [SerializeField] private AudioClip hurtClip;
 
     private CharacterController controller;
     private Transform cameraTransform;
@@ -50,7 +58,7 @@ public class PlayerController : MonoBehaviour
     private Vector3 moveDirection;
     private bool isSprinting;
 
-    private enum PlayerState { Normal, Hurt, Dashing, Dead }
+    private enum PlayerState { Normal, Attacking, Hurt, Dashing, Dead }
     private PlayerState state = PlayerState.Normal;
 
     private MoveCommand moveCommand;
@@ -110,7 +118,7 @@ public class PlayerController : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        ActivateWeapon(0);
+        ActivateWeapon(3);
     }
 
     private void Update()
@@ -118,7 +126,13 @@ public class PlayerController : MonoBehaviour
         if (state == PlayerState.Dead)
             return;
 
-        // First handle commands based on state
+        // Weapon Switching
+        HandleWeaponSwitchInput();
+
+        // Reload (fuera de Command, sólo tecla R)
+        HandleReloadInput();
+
+        // Commands solo en estado Normal
         if (state == PlayerState.Normal)
         {
             moveCommand.Execute();
@@ -139,13 +153,13 @@ public class PlayerController : MonoBehaviour
         controller.Move(velocity * Time.deltaTime);
 
         // Horizontal movement only in allowed states
-        if (state == PlayerState.Normal || state == PlayerState.Hurt)
+        if (state == PlayerState.Normal)
         {
             if (moveDirection.sqrMagnitude > 0.001f)
             {
                 controller.Move(moveDirection * Time.deltaTime);
+
                 // Rotar hacia la dirección de movimiento
-                // Tuve que aislar el eje Y para que no se incline al mirar hacia arriba o abajo
                 Vector3 lookDir = new Vector3(moveDirection.x, 0f, moveDirection.z);
                 if (lookDir.sqrMagnitude > 0.001f)
                 {
@@ -179,7 +193,7 @@ public class PlayerController : MonoBehaviour
 
         moveDirection = desired * speed;
 
-        // Animations, only basics, I placed the others in their respective methods, had to do some testing for adjusting timing.
+        // Animations
         bool isMoving = input.sqrMagnitude > 0.01f;
         anim.SetBool("Walking", isMoving && !isSprinting);
         anim.SetBool("Sprinting", isMoving && isSprinting);
@@ -198,6 +212,9 @@ public class PlayerController : MonoBehaviour
             anim.SetTrigger("DoubleJump");
 
         velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+        if (jumpClip != null)
+            AudioManager.Instance?.PlaySfx(jumpClip);
     }
 
     public void HandleDashInput()
@@ -212,41 +229,92 @@ public class PlayerController : MonoBehaviour
     {
         if (state != PlayerState.Normal) return;
 
+        bool startedAttack = false;
+
         // Attack with the current weapon
-        if (bow != null && teslaGun != null)
+        if (weapons != null && weapons.Length > 0)
         {
-            if (weapons != null && weapons.Length > 0)
+            // 0 = Bow, 1 = Tesla
+            if (weapons[0].activeSelf && bow != null)
             {
-                // 0 = Bow, 1 = Tesla
-                if (weapons[0].activeSelf)
-                {
-                    bow.TryShoot();
-                }
-                else if (weapons.Length > 1 && weapons[1].activeSelf)
-                {
-                    teslaGun.TryShoot();
-                }
+                bow.TryShoot();
+                if (bow.isShooting)
+                    startedAttack = true;
+            }
+            else if (weapons.Length > 1 && weapons[1].activeSelf && teslaGun != null)
+            {
+                teslaGun.TryShoot();
+                if (teslaGun.isShooting)
+                    startedAttack = true;
             }
         }
 
-        //anim.SetTrigger("Shoot");
+        if (startedAttack)
+        {
+            state = PlayerState.Attacking;
+            StartCoroutine(AttackStateRoutine());
+        }
+    }
+
+    private IEnumerator AttackStateRoutine()
+    {
+        // Esperar hasta que ninguna de las dos armas esté disparando
+        while (true)
+        {
+            bool bowShooting = bow != null && bow.isShooting;
+            bool teslaShooting = teslaGun != null && teslaGun.isShooting;
+
+            if (!bowShooting && !teslaShooting)
+                break;
+
+            yield return null;
+        }
+
+        // Si no hemos pasado a Hurt/Dead/Dashing, volvemos a Normal
+        if (state == PlayerState.Attacking)
+        {
+            state = PlayerState.Normal;
+        }
+    }
+
+    // === Reload ===
+    private void HandleReloadInput()
+    {
+        if (state != PlayerState.Normal) return;
+
+        if (!Input.GetKeyDown(reloadKey))
+            return;
+
+        if (weapons == null || weapons.Length == 0)
+            return;
+
+        // 0 = Bow, 1 = Tesla
+        if (weapons[0].activeSelf && bow != null)
+        {
+            bow.Reload();
+        }
+        else if (weapons.Length > 1 && weapons[1].activeSelf && teslaGun != null)
+        {
+            teslaGun.ReloadTime();
+        }
     }
 
     // === FSM for damage / dash / death ===
-    public void TakeDamage()
-    {
-        TakeDamage(hitDamage);
-    }
+    //public void TakeDamage()
+    //{
+    //    TakeDamage(hitDamage);
+    //}
 
-    public void TakeDamage(float amount)
+    public void TakeDamage()
     {
         if (state == PlayerState.Dead) return;
 
         if (stats != null)
-            stats.TakeDamage(amount);
+            stats.TakeDamage(hitDamage);
 
         if (hitParticles != null) hitParticles.Play();
-        if (hitSound != null) hitSound.Play();
+        if (hurtClip != null)
+            AudioManager.Instance?.PlaySfx(hurtClip);
 
         if (stats != null && stats.CurrentHealth <= 0f)
         {
@@ -261,8 +329,18 @@ public class PlayerController : MonoBehaviour
     private IEnumerator HurtRoutine()
     {
         state = PlayerState.Hurt;
+
+        // stop horizontal movement immediately
+        moveDirection = Vector3.zero;
+        isSprinting = false;
+        anim.SetBool("Walking", false);
+        anim.SetBool("Sprinting", false);
+
         anim.SetTrigger("Hit");
-        yield return new WaitForSeconds(0.5f);
+
+        // you still let gravity run in Update, which is fine
+        yield return new WaitForSeconds(1.5f);
+
         state = PlayerState.Normal;
     }
 
@@ -291,8 +369,22 @@ public class PlayerController : MonoBehaviour
     }
 
     // === Weapons / switching ===
+    private void HandleWeaponSwitchInput()
+    {
+        if (Input.GetKeyDown(weapon1Key))
+        {
+            anim.SetTrigger("EquipBow");
+            ActivateWeapon(0);  // Bow
+        }
 
-    public void ActivateWeapon(int index)
+        if (Input.GetKeyDown(weapon2Key))
+        {
+            ActivateWeapon(1);  // TeslaGun
+            anim.SetTrigger("DisarmBow");
+        }
+    }
+
+    public void ActivateWeaponOld(int index)
     {
         if (weapons == null || weapons.Length == 0) return;
         if (ammoUI == null || ammoUI.Length < weapons.Length) return;
@@ -302,6 +394,33 @@ public class PlayerController : MonoBehaviour
             weapons[i].SetActive(i == index);
             ammoUI[i].SetActive(i == index);
         }
+    }
+
+    public void ActivateWeapon(int index)
+    {
+        if (weapons == null || weapons.Length == 0) return;
+        if (index < 0 || index >= weapons.Length) return;
+
+        // Activar/desactivar armas
+        for (int i = 0; i < weapons.Length; i++)
+        {
+            if (weapons[i] != null)
+                weapons[i].SetActive(i == index);
+            if (i == 0) anim.SetTrigger("EquipBow");
+            else if (i == 1) anim.SetTrigger("DisarmBow");
+        }
+
+        // Activar/desactivar UI de ammo SOLO si existe
+        if (ammoUI != null && ammoUI.Length > 0)
+        {
+            for (int i = 0; i < ammoUI.Length; i++)
+            {
+                if (ammoUI[i] != null)
+                    ammoUI[i].SetActive(i == index);
+            }
+        }
+
+        Debug.Log($"Weapon switched to index {index}");
     }
 
     public void SwitchWeapon(int index)
@@ -316,5 +435,14 @@ public class PlayerController : MonoBehaviour
         controller.enabled = false;
         transform.position = destination.position;
         controller.enabled = true;
+    }
+
+    // === Daño desde el collider del enemigo ===
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("EnemyAttackPoint"))
+        {
+            TakeDamage();
+        }
     }
 }

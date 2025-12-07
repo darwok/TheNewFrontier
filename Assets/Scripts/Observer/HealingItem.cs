@@ -6,6 +6,9 @@ public class healScript : MonoBehaviour
     [SerializeField] private float floatFrequency = 2f;
     [SerializeField] private float healAmount = 20f;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip pickupClip;
+
     private Vector3 startPosition;
 
     void Start()
@@ -27,5 +30,7 @@ public class healScript : MonoBehaviour
             stats.Heal(healAmount);
             gameObject.SetActive(false);
         }
+        if (pickupClip != null)
+            AudioManager.Instance?.PlaySfx(pickupClip);
     }
 }

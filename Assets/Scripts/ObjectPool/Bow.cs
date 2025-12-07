@@ -22,21 +22,33 @@ public class Bow : MonoBehaviour
     [SerializeField] private Animator playerAnimator;
     [SerializeField] private NPC npc; // para no disparar si hablo con el NPC y evitar bugs
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip shootClip;
+    [SerializeField] private AudioClip reloadClip;
+
     private float lastShotTime;
     public bool isShooting { get; private set; }
 
+    private void Awake()
+    {
+        if (playerAnimator == null)
+            playerAnimator = GetComponentInParent<Animator>();
+    }
+
     private void Start()
     {
+        currAmmo = maxAmmo;
+        currMag = maxMags;
         UpdateUI();
     }
 
     private void UpdateUI()
     {
         if (ammoText != null)
-            ammoText.text = currAmmo.ToString() + "/" + maxAmmo;
+            ammoText.text = "Ammo" + currAmmo.ToString() + "/" + maxAmmo;
 
         if (magsText != null)
-            magsText.text = currMag.ToString() + "/" + maxMags;
+            magsText.text = "Quivers" + currMag.ToString() + "/" + maxMags;
     }
 
     public void TryShoot()
@@ -58,12 +70,15 @@ public class Bow : MonoBehaviour
     {
         isShooting = true;
         if (playerAnimator != null)
-            playerAnimator.SetTrigger("BowShot");
+            playerAnimator.SetTrigger("ArrowShot");
 
         yield return new WaitForSeconds(0.5f);
 
         if (shootParticles != null)
             shootParticles.Play();
+
+        if (shootClip != null)
+            AudioManager.Instance?.PlaySfx(shootClip);
 
         currAmmo--;
         lastShotTime = Time.time;
@@ -101,5 +116,8 @@ public class Bow : MonoBehaviour
         currMag--;
         currAmmo = maxAmmo;
         UpdateUI();
+
+        if (reloadClip != null)
+            AudioManager.Instance?.PlaySfx(reloadClip);
     }
 }

@@ -6,45 +6,55 @@ public class DoorController : MonoBehaviour
     public Transform player;
     public KeyPrototype requiredKey;
     public float detectionRange = 3f;
-    public Animator animator;
 
-    private bool isOpen;
+    private KeyInventory keyInventory;
+    private Animator animator;
 
-    private void Update()
+    private void Start()
     {
-        if (player == null || requiredKey == null) return;
+        animator = GetComponent<Animator>();
 
-        float dist = Vector3.Distance(player.position, transform.position);
-
-        if (dist <= detectionRange)
+        if (player != null)
         {
-            var inventory = player.GetComponent<KeyInventory>();
-            if (inventory != null && inventory.HasKey(requiredKey))
+            keyInventory = player.GetComponent<KeyInventory>();
+            if (keyInventory == null)
             {
-                OpenDoor();
-            }
-            else
-            {
-                CloseDoor();
+                Debug.LogWarning("[DoorController] El player no tiene KeyInventory.");
             }
         }
         else
         {
-            CloseDoor();
+            Debug.LogWarning("[DoorController] Player no asignado en el inspector.");
         }
     }
 
-    void OpenDoor()
+    private void Update()
     {
-        if (isOpen) return;
-        isOpen = true;
-        if (animator != null) animator.SetBool("isOpen", true);
+        if (player == null || animator == null || requiredKey == null)
+            return;
+
+        float distance = Vector3.Distance(player.position, transform.position);
+        bool inRange = distance < detectionRange;
+
+        if (PlayerHasRequiredKey())
+        {
+            animator.SetBool("hasKey", true);
+            animator.SetBool("isOpen", inRange);
+        }
+        else
+        {
+            animator.SetBool("hasKey", false);
+            animator.SetBool("isOpen", false);
+        }
     }
 
-    void CloseDoor()
+    private bool PlayerHasRequiredKey()
     {
-        if (!isOpen) return;
-        isOpen = false;
-        if (animator != null) animator.SetBool("isOpen", false);
+        if (keyInventory == null || requiredKey == null)
+            return false;
+
+        bool hasKey = keyInventory.HasKey(requiredKey);
+        // Debug.Log($"[DoorController] PlayerHasRequiredKey({requiredKey.id}) = {hasKey}");
+        return hasKey;
     }
 }
