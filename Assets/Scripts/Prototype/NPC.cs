@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro; // para TextMeshProUGUI
 
 public class NPC : MonoBehaviour
 {
@@ -12,7 +13,7 @@ public class NPC : MonoBehaviour
     public GameObject options;
     public Button keyButton;
     public Button byeButton;
-    public TMPro.TextMeshProUGUI feedbackText;
+    public TextMeshProUGUI feedbackText;
     [SerializeField] private float feedbackDuration = 2f;
 
     [Header("Keys")]
@@ -24,11 +25,24 @@ public class NPC : MonoBehaviour
 
     private void Start()
     {
-        interact.SetActive(false);
-        options.SetActive(false);
+        // Ocultar UI al inicio
+        if (interact != null)
+            interact.SetActive(false);
 
-        keyButton.onClick.AddListener(OnAskForKey);
-        byeButton.onClick.AddListener(OnSayBye);
+        if (options != null)
+            options.SetActive(false);
+
+        if (feedbackText != null)
+        {
+            feedbackText.text = string.Empty;
+            feedbackText.gameObject.SetActive(false);
+        }
+
+        if (keyButton != null)
+            keyButton.onClick.AddListener(OnAskForKey);
+
+        if (byeButton != null)
+            byeButton.onClick.AddListener(OnSayBye);
     }
 
     private void Update()
@@ -36,11 +50,24 @@ public class NPC : MonoBehaviour
         if (player == null) return;
 
         float dist = Vector3.Distance(player.position, transform.position);
-        playerInRange = dist <= interactionDistance;
+        bool isNowInRange = dist <= interactionDistance;
 
-        interact.SetActive(playerInRange && !options.activeSelf);
+        // Si el jugador sale del rango, cerrar diálogo y limpiar UI
+        if (!isNowInRange && playerInRange)
+        {
+            playerInRange = false;
+            CloseDialogue();
+            return;
+        }
 
-        if (playerInRange && !options.activeSelf && Input.GetKeyDown(KeyCode.F))
+        playerInRange = isNowInRange;
+
+        // Mostrar "interact" sólo si está en rango y el menú no está abierto
+        if (interact != null)
+            interact.SetActive(playerInRange && (options != null && !options.activeSelf));
+
+        // Abrir menú al presionar F estando en rango
+        if (playerInRange && options != null && !options.activeSelf && Input.GetKeyDown(KeyCode.F))
         {
             OpenOptions();
         }
@@ -49,14 +76,36 @@ public class NPC : MonoBehaviour
     private void OpenOptions()
     {
         EnableCursor();
-        interact.SetActive(false);
-        options.SetActive(true);
+
+        if (interact != null)
+            interact.SetActive(false);
+
+        if (options != null)
+            options.SetActive(true);
     }
 
     private void CloseDialogue()
     {
-        options.SetActive(false);
-        interact.SetActive(false);
+        if (options != null)
+            options.SetActive(false);
+
+        if (interact != null)
+            interact.SetActive(false);
+
+        // detener feedback si estaba corriendo
+        if (feedbackRoutine != null)
+        {
+            StopCoroutine(feedbackRoutine);
+            feedbackRoutine = null;
+        }
+
+        if (feedbackText != null)
+        {
+            feedbackText.text = string.Empty;
+            feedbackText.gameObject.SetActive(false);
+        }
+
+        DisableCursor();
     }
 
     private void EnableCursor()
@@ -73,7 +122,7 @@ public class NPC : MonoBehaviour
 
     private void OnAskForKey()
     {
-        var inventory = player.GetComponent<KeyInventory>();
+        var inventory = player != null ? player.GetComponent<KeyInventory>() : null;
         if (keyGiver != null && inventory != null)
         {
             keyGiver.TryGiveKey(inventory);
@@ -88,7 +137,6 @@ public class NPC : MonoBehaviour
     private void OnSayBye()
     {
         CloseDialogue();
-        DisableCursor();
     }
 
     private void ShowFeedback(string text)
@@ -96,6 +144,7 @@ public class NPC : MonoBehaviour
         if (feedbackText == null) return;
 
         feedbackText.text = text;
+        feedbackText.gameObject.SetActive(true);
 
         if (feedbackRoutine != null)
             StopCoroutine(feedbackRoutine);
@@ -106,7 +155,14 @@ public class NPC : MonoBehaviour
     private System.Collections.IEnumerator ClearFeedbackRoutine()
     {
         yield return new WaitForSeconds(feedbackDuration);
-        feedbackText.text = string.Empty;
+
+        if (feedbackText != null)
+        {
+            feedbackText.text = string.Empty;
+            feedbackText.gameObject.SetActive(false);
+        }
+
+        feedbackRoutine = null;
     }
 
     private void OnDrawGizmosSelected()
