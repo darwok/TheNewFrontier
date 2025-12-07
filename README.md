@@ -17,32 +17,40 @@ Dejo el link a dicho repositorio como referencia: https://github.com/darwok/Patr
 ## Diagrama UML – Singleton & MVC (Audio / Options Menu)
 ```mermaid
 classDiagram
+direction TB
+
 class AudioManager {
-  <<singleton>>
+  <<Singleton>>
   -float masterVolume
+  -AudioSource musicSource
+  -AudioSource sfxSource
   +float MasterVolume
   +static AudioManager Instance
   +void Awake()
   +void SetMasterVolume(float volume)
   -void ApplyVolume()
+  +void PlaySfx(AudioClip clip)
+  +void PlayMusic(AudioClip clip, bool loop)
 }
 
 class OptionsModel {
-  -float volume
-  -float brightness
+  <<Model>>
+  +float volume
+  +float brightness
   +void Load()
   +void Save()
 }
 
 class OptionsView {
+  <<View>>
   -Slider volumeSlider
   -Slider brightnessSlider
   +Slider VolumeSlider
   +Slider BrightnessSlider
-  +void Bind(float volume, float brightness)
 }
 
 class OptionsController {
+  <<Controller>>
   -OptionsView view
   -CanvasGroup brightnessOverlay
   -OptionsModel model
@@ -50,7 +58,6 @@ class OptionsController {
   +void OnDestroy()
   -void OnVolumeChanged(float value)
   -void OnBrightnessChanged(float value)
-  -void ApplyVolume(float value)
   -void ApplyBrightness(float value)
   +void CloseOptions()
 }
@@ -66,64 +73,76 @@ class MainMenuManager {
   +void MainMenu()
 }
 
-OptionsController --> OptionsModel : usa
-OptionsController --> OptionsView : controla
-OptionsController --> AudioManager : ajusta volumen
-OptionsController --> CanvasGroup : ajusta brillo
-MainMenuManager --> OptionsController : activa/desactiva panel
-MainMenuManager --> GameObject : paneles UI
+OptionsController o--> OptionsModel : mantiene
+OptionsController o--> OptionsView : controla
+OptionsController ..> AudioManager : ajusta volumen
+OptionsController o--> CanvasGroup : ajusta brillo
+
+MainMenuManager ..> OptionsController : abre/cierra menú
+MainMenuManager o--> GameObject : paneles UI
 ```
 ## Diagrama UML – Command + FSM (Player)
 ```mermaid
 classDiagram
+direction TB
+
 class ICommand {
-  <<interface>>
+  <<Command>>
   +Execute()
 }
 
 class MoveCommand {
+  <<ConcreteCommand>>
   -PlayerController player
   -InputAction moveAction
   -InputAction sprintAction
   +MoveCommand(PlayerController, InputActionReference, InputActionReference)
-  +Execute()
+  +void Execute()
 }
 
 class JumpCommand {
+  <<ConcreteCommand>>
   -PlayerController player
   -InputAction jumpAction
   +JumpCommand(PlayerController, InputActionReference)
-  +Execute()
+  +void Execute()
 }
 
 class DashCommand {
+  <<ConcreteCommand>>
   -PlayerController player
   -InputAction dashAction
   +DashCommand(PlayerController, InputActionReference)
-  +Execute()
+  +void Execute()
 }
 
 class AttackCommand {
+  <<ConcreteCommand>>
   -PlayerController player
   -InputAction attackAction
   +AttackCommand(PlayerController, InputActionReference)
-  +Execute()
+  +void Execute()
 }
 
 class PlayerState {
   <<enumeration>>
   Normal
+  Attacking
   Hurt
   Dashing
   Dead
 }
 
 class PlayerController {
+  <<Invoker,Receiver>>
   -Bow bow
   -TeslaGun teslaGun
   -GameObject[] weapons
   -GameObject[] ammoUI
   -Animator anim
+  -KeyCode weapon1Key
+  -KeyCode weapon2Key
+  -KeyCode reloadKey
   -float moveSpeed
   -float sprintSpeed
   -float gravity
@@ -144,16 +163,16 @@ class PlayerController {
   -CharacterController controller
   -Transform cameraTransform
   -Vector3 velocity
+  -Vector3 moveDirection
   -int jumpCount
   -float lastDashTime
   -bool isGrounded
-  -Vector3 moveDirection
   -bool isSprinting
   -PlayerState state
-  -MoveCommand moveCommand
-  -JumpCommand jumpCommand
-  -DashCommand dashCommand
-  -AttackCommand attackCommand
+  -ICommand moveCommand
+  -ICommand jumpCommand
+  -ICommand dashCommand
+  -ICommand attackCommand
   -PlayerStatsSubject stats
   -KeyInventory keyInventory
   +int playerhp
@@ -166,8 +185,12 @@ class PlayerController {
   +void HandleJumpInput()
   +void HandleDashInput()
   +void HandleAttackInput()
+  -IEnumerator AttackStateRoutine()
   +void TakeDamage()
   +void TakeDamage(float amount)
+  -IEnumerator HurtRoutine()
+  -IEnumerator DeathRoutine()
+  -IEnumerator DashRoutine()
   +void ActivateWeapon(int index)
   +void SwitchWeapon(int index)
   +void TeleportTo(Transform destination)
@@ -178,20 +201,25 @@ ICommand <|.. JumpCommand
 ICommand <|.. DashCommand
 ICommand <|.. AttackCommand
 
-PlayerController --> MoveCommand : invoca
-PlayerController --> JumpCommand : invoca
-PlayerController --> DashCommand : invoca
-PlayerController --> AttackCommand : invoca
-PlayerController --> Bow : usa
-PlayerController --> TeslaGun : usa
-PlayerController --> PlayerStatsSubject : consulta/daño
-PlayerController --> KeyInventory : consulta llaves
-PlayerController --> PlayerState : usa
+PlayerController o--> ICommand : mantiene comandos
+MoveCommand o--> PlayerController : receiver
+JumpCommand o--> PlayerController : receiver
+DashCommand o--> PlayerController : receiver
+AttackCommand o--> PlayerController : receiver
+
+PlayerController --> PlayerState : FSM interna
+PlayerController --> Bow
+PlayerController --> TeslaGun
+PlayerController --> PlayerStatsSubject
+PlayerController --> KeyInventory
 ```
 ## Diagrama UML – Object Pool & Armas (Bow / Arrow / TeslaGun)
 ```mermaid
 classDiagram
+direction TB
+
 class ObjectPool {
+  <<Pool>>
   -GameObject prefab
   -int initialSize
   -bool expandable
@@ -203,6 +231,7 @@ class ObjectPool {
 }
 
 class Arrow {
+  <<Reusable>>
   -float speed
   -float maxTime
   -float currentTime
@@ -217,6 +246,7 @@ class Arrow {
 }
 
 class Bow {
+  <<Client>>
   +string weaponName
   -ObjectPool arrowPool
   -Transform muzzle
@@ -231,10 +261,14 @@ class Bow {
   -Animator playerAnimator
   -NPC npc
   -float lastShotTime
-  -bool isShooting
+  -bool _isShooting
+  +bool isShooting()
+  +void Awake()
   +void Start()
+  +void OnEnable()
+  +void OnDisable()
   -void UpdateUI()
-  +void TryShoot()
+  +bool TryShoot()
   -IEnumerator ShootRoutine()
   +void RestockAmmo()
   +void Reload()
@@ -242,7 +276,6 @@ class Bow {
 
 class TeslaGun {
   +string weaponName
-  -LineRenderer lineRenderer
   -Transform muzzle
   -int maxAmmoTime
   -int currAmmoTime
@@ -251,33 +284,73 @@ class TeslaGun {
   -float shootDistance
   -LayerMask shootMask
   -ParticleSystem shootParticles
+  -LineRenderer lineRenderer
   -Animator playerAnimator
   -NPC npc
-  -bool isShooting
+  -bool _isShooting
+  +bool isShooting()
   +void Start()
-  +void TryShoot()
+  +bool TryShoot()
   -IEnumerator ShootLaserRoutine()
   +void RestockAmmo()
   +void Reload()
 }
 
-ObjectPool o--> Arrow : administra
-Bow --> ObjectPool : usa para flechas
-Bow --> Arrow : instancia desde el pool
-TeslaGun --> NPC : consulta rango diálogo
-PlayerController --> Bow : ataca
-PlayerController --> TeslaGun : ataca
+ObjectPool o--> Arrow : contiene objetos
+Arrow o--> ObjectPool : devuelve al pool
+Bow o--> ObjectPool : solicita flechas
+Bow --> Arrow : instancia desde pool
+PlayerController --> Bow
+PlayerController --> TeslaGun
+TeslaGun --> NPC : chequea diálogo
 ```
 ## Diagrama UML – Factory (EnemySpawner / EnemyFactory)
 ```mermaid
 classDiagram
+direction TB
+
+class EnemyType {
+  <<enumeration>>
+  Melee
+  Ranged
+}
+
+class EnemyController {
+  <<Product>>
+  -Animator animator
+  -NavMeshAgent agent
+  -float hp
+  -int points
+  -float attackRange
+  -float toPatrol
+  -Collider attackCollider
+  -ParticleSystem hitP
+  -bool isAttacking
+  -bool isDead
+  -Transform player
+  -List<Transform> patrolPoints
+  +void Init(Transform playerTransform)
+  +void Start()
+  +void Update()
+  +void OnCollisionEnter(Collision other)
+  +void GetHit(float damage)
+  -IEnumerator Die()
+  -void StartAttack()
+  -void StopAttack()
+  -void EnableAttackCollider()
+  -void DisableAttackCollider()
+  -void Patrol()
+}
+
 class EnemyFactory {
+  <<Creator>>
   -GameObject meleeEnemyPrefab
   -GameObject rangedEnemyPrefab
   +GameObject CreateEnemy(EnemyType type, Vector3 position, Quaternion rotation, Transform parent)
 }
 
 class EnemySpawner {
+  <<Client>>
   -EnemyFactory factory
   -EnemyType enemyType
   -Transform[] spawnPoints
@@ -286,65 +359,59 @@ class EnemySpawner {
   +void SpawnAll()
 }
 
-class EnemyController {
-  -float health
-  -float speed
-  -int points
-  +void Start()
-  +void Update()
-  +void GetHit(float damage)
-}
-
-class EnemyType {
-  <<enumeration>>
-  Melee
-  Ranged
-}
-
-EnemySpawner --> EnemyFactory : usa
-EnemyFactory --> EnemyController : crea instancias
-EnemyFactory --> EnemyType : tipo de enemigo
-EnemySpawner --> EnemyType : configuración
+EnemySpawner o--> EnemyFactory : usa factory
+EnemyFactory o--> EnemyController : crea instancias
+EnemyFactory ..> EnemyType : selecciona tipo
+EnemyController ..> PlayerController : persigue jugador
 ```
 ## Diagrama UML – Prototype & Keys (Llaves / Puertas / NPC)
 ```mermaid
 classDiagram
+direction TB
+
 class KeyPrototype {
-  <<prototype>>
+  <<Prototype>>
   +string id
   +string displayName
   +Sprite icon
 }
 
 class KeyInventory {
+  <<Client>>
   -HashSet<string> keys
   +void AddKey(KeyPrototype prototype)
   +bool HasKey(KeyPrototype prototype)
 }
 
 class KeyPickup {
+  <<Client>>
   +KeyPrototype keyPrototype
   +void OnTriggerEnter(Collider other)
 }
 
 class KeyGiverNPC {
+  <<Client>>
   +KeyPrototype requiredKey
   +KeyPrototype rewardKey
   +void TryGiveKey(KeyInventory inventory)
 }
 
 class DoorController {
+  <<Client>>
   +Transform player
   +KeyPrototype requiredKey
   +float detectionRange
   +Animator animator
   -bool isOpen
+  +void Start()
   +void Update()
+  -void UpdateDoorState(bool inRange, bool hasKey)
   -void OpenDoor()
   -void CloseDoor()
 }
 
 class NPC {
+  <<Client>>
   +Transform player
   +float interactionDistance
   +GameObject interact
@@ -368,32 +435,34 @@ class NPC {
   +void OnDrawGizmosSelected()
 }
 
+KeyInventory ..> KeyPrototype : usa id
+
 KeyPickup --> KeyPrototype : referencia
-KeyPickup --> KeyInventory : agrega llave
+KeyPickup ..> KeyInventory : agrega al inventario del jugador
 
-KeyInventory --> KeyPrototype : consulta por id
+KeyGiverNPC --> KeyPrototype : required/reward
+KeyGiverNPC ..> KeyInventory : da llaves
 
-KeyGiverNPC --> KeyPrototype : requiredKey, rewardKey
-KeyGiverNPC --> KeyInventory : entrega llave
-
-NPC --> KeyGiverNPC : delega lógica de llaves
-NPC --> KeyInventory : a través del Player
-
+NPC o--> KeyGiverNPC : delega llaves
 DoorController --> KeyPrototype : llave requerida
-DoorController --> KeyInventory : verifica llave
-DoorController --> Animator : abre/cierra puerta
+DoorController ..> KeyInventory : consulta llaves
+DoorController --> Animator : estados hasKey/isOpen
+PlayerController o--> KeyInventory : guarda llaves
 ```
 ## Diagrama UML – Observer & Player Stats (Health / Score / Pickups)
 ```mermaid
 classDiagram
+direction TB
+
 class IPlayerStatsObserver {
-  <<interface>>
+  <<Observer>>
   +OnHealthChanged(float current, float max)
   +OnScoreChanged(int score)
   +OnAmmoChanged(int ammo)
 }
 
 class PlayerStatsSubject {
+  <<Subject>>
   +float maxHealth
   +float CurrentHealth
   +int Score
@@ -412,6 +481,7 @@ class PlayerStatsSubject {
 }
 
 class HealthUI {
+  <<ConcreteObserver>>
   -PlayerStatsSubject subject
   -Slider hpSlider
   +void OnEnable()
@@ -422,7 +492,7 @@ class HealthUI {
 }
 
 class scoreUI {
-  <<singleton>>
+  <<ConcreteObserver,Singleton>>
   +static scoreUI instance
   -PlayerStatsSubject subject
   -TextMeshProUGUI scoreValue
@@ -459,58 +529,19 @@ class healScript {
   +void OnTriggerEnter(Collider other)
 }
 
-PlayerStatsSubject o--> IPlayerStatsObserver : notifica
+PlayerStatsSubject o--> IPlayerStatsObserver : notifica cambios
 
 HealthUI ..|> IPlayerStatsObserver
 scoreUI ..|> IPlayerStatsObserver
 
-HealthUI --> PlayerStatsSubject : se registra
-scoreUI --> PlayerStatsSubject : se registra
+HealthUI o--> PlayerStatsSubject : se registra
+scoreUI o--> PlayerStatsSubject : se registra
 
-AmmoMags --> PlayerStatsSubject : AddAmmo()
-AmmoMags --> Bow : RestockAmmo()
-AmmoMags --> TeslaGun : RestockAmmo()
+AmmoMags ..> PlayerStatsSubject : AddAmmo()
+AmmoMags ..> Bow : RestockAmmo()
+AmmoMags ..> TeslaGun : RestockAmmo()
 
-healScript --> PlayerStatsSubject : Heal()
-```
-## Diagrama general de relaciones entre patrones
-```mermaid
-classDiagram
-AudioManager <.. OptionsController
-OptionsController ..> OptionsModel
-OptionsController ..> OptionsView
+healScript ..> PlayerStatsSubject : Heal()
 
-PlayerController ..> MoveCommand
-PlayerController ..> JumpCommand
-PlayerController ..> DashCommand
-PlayerController ..> AttackCommand
-MoveCommand ..|> ICommand
-JumpCommand ..|> ICommand
-DashCommand ..|> ICommand
-AttackCommand ..|> ICommand
-
-PlayerController --> Bow
-PlayerController --> TeslaGun
-Bow --> ObjectPool
-ObjectPool o--> Arrow
-
-EnemySpawner --> EnemyFactory
-EnemyFactory --> EnemyController
-
-PlayerController --> KeyInventory
-KeyInventory --> KeyPrototype
-KeyPickup --> KeyInventory
-KeyPickup --> KeyPrototype
-KeyGiverNPC --> KeyInventory
-KeyGiverNPC --> KeyPrototype
-NPC --> KeyGiverNPC
-DoorController --> KeyPrototype
-DoorController --> KeyInventory
-
-PlayerController --> PlayerStatsSubject
-PlayerStatsSubject o--> IPlayerStatsObserver
-HealthUI ..|> IPlayerStatsObserver
-scoreUI ..|> IPlayerStatsObserver
-AmmoMags --> PlayerStatsSubject
-healScript --> PlayerStatsSubject
+PlayerController o--> PlayerStatsSubject : daño/score
 ```
